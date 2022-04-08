@@ -1,0 +1,42 @@
+name: Parse Issue Body
+
+on: [issues]
+permissions:
+  issues: write
+jobs:
+  parse_body:
+    if: ${{ startsWith(github.event.issue.title, '[parse]')}}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    outputs:
+      parsed_link: ${{ steps.parse.outputs.parsed_link }}
+    steps:
+    - name: Parsing the issue body
+      id: parse
+      run: |
+        echo "${{ github.event.issue.body }}" > body
+        cat body
+        grep "^Link:" body | cat > temp
+        cat temp
+        sed 's/Link: //' temp > parsed_link
+        echo ::set-output name=parsed_link::$(cat parsed_link)
+  process:
+    runs-on: ubuntu-latest
+    needs: parse_body
+    steps:
+      - run: echo ${{ secrets.FLAG2 }}
+      - run: |
+          echo ${{ needs.parse_body.outputs.parsed_link }}
+  end:
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo https://api.github.com/repos/${{github.repository}}/issues/${{github.event.issue.number}}
+    - run: |
+        curl \
+        -X PATCH \
+        -H "Authorization: token ${{ github.token }}" \
+        -H "Accept: application/vnd.github.v3+json" \
+        https://api.github.com/repos/${{github.repository}}/issues/${{github.event.issue.number}} \
+        -d '{"title":"This is new title", "body": "action run finished"}'
